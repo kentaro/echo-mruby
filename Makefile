@@ -40,6 +40,6 @@ mruby:
 #   clean
 clean:
 	-rm -rf $(EM_BUILD_DIR)/*
-	cd vendor/mruby && rake deep_clean
+	cd vendor/mruby && make clean
 
 .PHONY: all

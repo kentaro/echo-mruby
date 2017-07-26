@@ -43,8 +43,9 @@ void em_server_free(em_server *self)
 void em_server_run(em_server *self)
 {
   int len;
-  char buf[BUF_SIZE];
-  char err_msg[BUF_SIZE];
+  char *code;
+  char *res;
+  char *err;
 
   int sock;
   int conn;
@@ -52,33 +53,49 @@ void em_server_run(em_server *self)
   unsigned int client_size = sizeof(client);
 
   if ((sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-    strcpy(err_msg, "failed to create a socket");
+    err = "failed to create a socket";
     goto ERROR;
   }
   if (bind(sock, (struct sockaddr *)&self->server, sizeof(self->server)) < 0) {
-    strcpy(err_msg, "failed to bind");
+    err = "failed to bind";
     goto ERROR;
   }
   if (listen(sock, 1) < 0) {
-    strcpy(err_msg, "failed to listen");
+    err = "failed to listen";
     goto ERROR;
   }
 
   while(1) {
     if ((conn = accept(sock, (struct sockaddr *)&client, &client_size)) < 0) {
-      strcpy(err_msg, "failed to accept");
+      err = "failed to accept";
       goto ERROR;
     }
 
-    while ((len = read(conn, buf, BUF_SIZE)) > 0) {
-      write(conn, buf, len);
+    while (1) {
+      len = recv(conn, code, BUF_SIZE, 0);
+
+      // Connection closed by client
+      if (len == 0) {
+        break;
+      } else if (len > 0) {
+        puts(code);
+        char *res = em_mrb_eval(self->core, code);
+        puts(res);
+
+        if (res != NULL) {
+          send(conn, res, strlen(res), 0);
+          em_string_free(self->core, res);
+        }
+      } else {
+        break;
+      }
     }
 
     close(conn);
   }
 
 ERROR:
-  fprintf(stderr, "%s\n", err_msg);
+  fprintf(stderr, "%s\n", err);
   em_server_free(self);
   exit(1);
 }
