@@ -72,18 +72,15 @@ void em_server_run(em_server *self)
     }
 
     while (1) {
-      len = recv(conn, code, BUF_SIZE, 0);
+      len = read(conn, code, BUF_SIZE);
 
-      // Connection closed by client
-      if (len == 0) {
-        break;
-      } else if (len > 0) {
+      if (len > 0) {
         puts(code);
         char *res = em_mrb_eval(self->core, code);
         puts(res);
 
         if (res != NULL) {
-          send(conn, res, strlen(res), 0);
+          write(conn, res, strlen(res));
           em_string_free(self->core, res);
         }
       } else {

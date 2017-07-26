@@ -88,11 +88,10 @@ char *em_mrb_value_to_str(em *self, mrb_value *value)
 
 mrb_value em_mrb_method_reply_count(mrb_state *mrb, mrb_value value)
 {
-  // em *self = (em *)mrb->ud;
-  // int count = self->count;
+  em *self = (em *)mrb->ud;
+  int count = self->count;
 
-  return mrb_fixnum_value(111);
-  // return mrb_fixnum_value(count);
+  return mrb_fixnum_value(count);
 }
 
 void em_mrb_init(em *self)
@@ -103,4 +102,6 @@ void em_mrb_init(em *self)
   class = mrb_define_class(self->mrb, "Em", self->mrb->object_class);
 
   mrb_define_class_method(self->mrb, class, "reply_count", em_mrb_method_reply_count, MRB_ARGS_NONE());
+
+  mrb_gc_arena_restore(self->mrb, 0);
 }
