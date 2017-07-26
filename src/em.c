@@ -1,11 +1,11 @@
-#include "ems.h"
+#include "em.h"
 #include "mruby/compile.h"
 
-ems *ems_new()
+em *em_new()
 {
-  ems *self;
+  em *self;
 
-  self = malloc(sizeof(ems));
+  self = malloc(sizeof(em));
   if (self == NULL) {
     return NULL;
   }
@@ -22,7 +22,7 @@ ems *ems_new()
   return self;
 }
 
-void ems_free(ems *self)
+void em_free(em *self)
 {
   self->mrb->ud = NULL;
   mrb_close(self->mrb);
@@ -30,26 +30,26 @@ void ems_free(ems *self)
   free(self);
 }
 
-ems_string ems_string_from_char(char *val)
+em_string em_string_from_char(char *val)
 {
-  return (ems_string)val;
+  return (em_string)val;
 }
 
-ems_int ems_string_from_int(int val)
+em_int em_string_from_int(int val)
 {
-  return (ems_int)val;
+  return (em_int)val;
 }
 
-char *ems_string_to_string(ems_string val)
+char *em_string_to_string(em_string val)
 {
-  char *res = malloc(sizeof(ems_string));
+  char *res = malloc(sizeof(em_string));
   sprintf(res, "(string) %s", (char *)val);
   return res;
 }
 
-char *ems_int_to_string(ems_int val)
+char *em_int_to_string(em_int val)
 {
-  char *res = malloc(sizeof(ems_int));
+  char *res = malloc(sizeof(em_int));
   sprintf(res, "(int) %d", (int)val);
   return res;
 }
