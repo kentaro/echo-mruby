@@ -38,12 +38,13 @@ void em_server_free(em_server *self)
   free(self);
 }
 
-#define BUF_SIZE 256
+#define BUF_SIZE 255
 
 void em_server_run(em_server *self)
 {
   int len;
-  char *code;
+  char code[BUF_SIZE];
+
   char *res;
   char *err;
 
@@ -72,19 +73,22 @@ void em_server_run(em_server *self)
     }
 
     while (1) {
-      len = read(conn, code, BUF_SIZE);
+      memset(code, 0, sizeof(code));
+      len = recv(conn, code, sizeof(code), 0);
 
-      if (len > 0) {
-        puts(code);
-        char *res = em_mrb_eval(self->core, code);
-        puts(res);
+      if (len < 0) {         // recv error
+        perror("an error occurred\n");
+        break;
+      } else if (len == 0) { // connection closed
+        perror("connection closed by peer\n");
+        break;
+      } else if (len > 0) {
+        res = em_mrb_eval(self->core, code);
 
         if (res != NULL) {
-          write(conn, res, strlen(res));
+          send(conn, res, strlen(res), 0);
           em_string_free(self->core, res);
         }
-      } else {
-        break;
       }
     }
 

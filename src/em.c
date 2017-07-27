@@ -2,7 +2,7 @@
 
 void em_mrb_init(em *self);
 mrb_value em_mrb_method_reply_count(mrb_state *mrb, mrb_value value);
-char *em_mrb_value_to_str(em *self, mrb_value *value);
+char *em_mrb_value_to_str(em *self, mrb_value value);
 
 em *em_new()
 {
@@ -33,22 +33,39 @@ void em_free(em *self)
   free(self);
 }
 
+void em_reply_count_incr(em *self)
+{
+  self->reply_count++;
+}
+
 char *em_mrb_eval(em *self, char *code)
 {
   char *res;
+
   mrb_value value;
+  mrbc_context *cxt;
+
   mrb_int ai = mrb_gc_arena_save(self->mrb);
 
-  value = mrb_load_string(self->mrb, code);
+  // to use `self` in mruby script
+  self->mrb->ud = self;
 
-  if (self->mrb->exc) {
+  cxt = mrbc_context_new(self->mrb);
+  value = mrb_load_string_cxt(self->mrb, code, cxt);
+
+  // undef: parse error
+  // nil:   runtime error
+  if (self->mrb->exc != 0 && (mrb_nil_p(value) || mrb_undef_p(value))) {
     value = mrb_obj_value(self->mrb->exc);
   }
 
-  res = em_mrb_value_to_str(self, &value);
+  res = em_mrb_value_to_str(self, value);
 
   self->mrb->exc = 0;
+  mrbc_context_free(self->mrb, cxt);
   mrb_gc_arena_restore(self->mrb, ai);
+
+  em_reply_count_incr(self);
 
   return res;
 }
@@ -59,26 +76,45 @@ void em_string_free(em *self, char *str)
     free(str);
 }
 
-char *em_mrb_value_to_str(em *self, mrb_value *value)
+char *em_mrb_value_to_str(em *self, mrb_value value)
 {
   char *str;
-  enum mrb_vtype type = mrb_type(*value);
+  enum mrb_vtype type = mrb_type(value);
+
+  if (mrb_undef_p(value) || mrb_nil_p(value)) {
+    asprintf(&str, "(nil)");
+    return str;
+  }
 
   switch (type) {
+    case MRB_TT_FLOAT: {
+      asprintf(&str, "(float) %f\n", mrb_float(value));
+      break;
+    }
     case MRB_TT_FIXNUM: {
-      asprintf(&str, "(integer) %d\n", mrb_fixnum(*value));
+      asprintf(&str, "(integer) %d\n", mrb_fixnum(value));
       break;
     }
     case MRB_TT_STRING: {
-      asprintf(&str, "(string) %s\n", mrb_str_to_cstr(self->mrb, *value));
+      asprintf(&str, "(string) %s\n", mrb_str_to_cstr(self->mrb, value));
+      break;
+    }
+    case MRB_TT_ARRAY: {
+      char *inspect = mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value));
+      asprintf(&str, "(array) %s\n", inspect);
+      break;
+    }
+    case MRB_TT_HASH: {
+      char *inspect = mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value));
+      asprintf(&str, "(hash) %s\n", inspect);
       break;
     }
     case MRB_TT_EXCEPTION: {
-      asprintf(&str, "(error) %s\n", mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, *value)));
+      asprintf(&str, "(error) %s\n", mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value)));
       break;
     }
     default: {
-      char *inspect = mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, *value));
+      char *inspect = mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value));
       asprintf(&str, "(other) %s\n", inspect);
     }
   }
@@ -89,19 +125,19 @@ char *em_mrb_value_to_str(em *self, mrb_value *value)
 mrb_value em_mrb_method_reply_count(mrb_state *mrb, mrb_value value)
 {
   em *self = (em *)mrb->ud;
-  int count = self->count;
+  int count = self->reply_count;
 
   return mrb_fixnum_value(count);
 }
 
 void em_mrb_init(em *self)
 {
-  self->mrb->ud = self;
+  mrb_int ai = mrb_gc_arena_save(self->mrb);
 
   struct RClass *class;
   class = mrb_define_class(self->mrb, "Em", self->mrb->object_class);
 
   mrb_define_class_method(self->mrb, class, "reply_count", em_mrb_method_reply_count, MRB_ARGS_NONE());
 
-  mrb_gc_arena_restore(self->mrb, 0);
+  mrb_gc_arena_restore(self->mrb, ai);
 }

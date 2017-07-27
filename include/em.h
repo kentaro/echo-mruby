@@ -8,7 +8,7 @@
 #include "mruby/string.h"
 
 typedef struct em_t {
-  int count;
+  int reply_count;
   mrb_state *mrb;
 } em;
 
