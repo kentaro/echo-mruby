@@ -119,5 +119,7 @@ int main(int argc, char *argv[])
   }
 
   em_server_run(server);
+  em_server_free(server);
+
   exit(0);
 }

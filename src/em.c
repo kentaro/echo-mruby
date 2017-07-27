@@ -1,8 +1,10 @@
 #include "em.h"
 
 void em_mrb_init(em *self);
-mrb_value em_mrb_method_reply_count(mrb_state *mrb, mrb_value value);
 char *em_mrb_value_to_str(em *self, mrb_value value);
+
+mrb_value em_mrb_method_reply_count(mrb_state *mrb, mrb_value value);
+mrb_value em_mrb_method_set_reply_prefix(mrb_state *mrb, mrb_value value);
 
 em *em_new()
 {
@@ -13,13 +15,15 @@ em *em_new()
     return NULL;
   }
 
-  self->mrb = mrb_open();
+  // init members of em struct
+  self->reply_count = 0;
+  self->reply_prefix = "em>";
 
+  self->mrb = mrb_open();
   if (self->mrb == NULL) {
     free(self);
     return NULL;
   }
-
   em_mrb_init(self);
 
   return self;
@@ -88,46 +92,57 @@ char *em_mrb_value_to_str(em *self, mrb_value value)
 
   switch (type) {
     case MRB_TT_FLOAT: {
-      asprintf(&str, "(float) %f\n", mrb_float(value));
+      asprintf(&str, "%s (float) %f\n", self->reply_prefix, mrb_float(value));
       break;
     }
     case MRB_TT_FIXNUM: {
-      asprintf(&str, "(integer) %d\n", mrb_fixnum(value));
+      asprintf(&str, "%s (integer) %d\n", self->reply_prefix, mrb_fixnum(value));
       break;
     }
     case MRB_TT_STRING: {
-      asprintf(&str, "(string) %s\n", mrb_str_to_cstr(self->mrb, value));
+      asprintf(&str, "%s (string) %s\n", self->reply_prefix, mrb_str_to_cstr(self->mrb, value));
       break;
     }
     case MRB_TT_ARRAY: {
       char *inspect = mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value));
-      asprintf(&str, "(array) %s\n", inspect);
+      asprintf(&str, "%s (array) %s\n", self->reply_prefix, inspect);
       break;
     }
     case MRB_TT_HASH: {
       char *inspect = mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value));
-      asprintf(&str, "(hash) %s\n", inspect);
+      asprintf(&str, "%s (hash) %s\n", self->reply_prefix, inspect);
       break;
     }
     case MRB_TT_EXCEPTION: {
-      asprintf(&str, "(error) %s\n", mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value)));
+      asprintf(&str, "%s (error) %s\n", self->reply_prefix, mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value)));
       break;
     }
     default: {
       char *inspect = mrb_str_to_cstr(self->mrb, mrb_inspect(self->mrb, value));
-      asprintf(&str, "(other) %s\n", inspect);
+      asprintf(&str, "%s (other) %s\n", self->reply_prefix, inspect);
     }
   }
 
   return str;
 }
 
-mrb_value em_mrb_method_reply_count(mrb_state *mrb, mrb_value value)
+mrb_value em_mrb_method_reply_count(mrb_state *mrb, mrb_value self)
 {
-  em *self = (em *)mrb->ud;
-  int count = self->reply_count;
+  em *em_obj = (em *)mrb->ud;
+  int count = em_obj->reply_count;
 
   return mrb_fixnum_value(count);
+}
+
+mrb_value em_mrb_method_set_reply_prefix(mrb_state *mrb, mrb_value self)
+{
+  mrb_value prefix;
+  em *em_obj = (em *)mrb->ud;
+
+  mrb_get_args(mrb, "S", &prefix);
+  em_obj->reply_prefix = mrb_str_to_cstr(mrb, prefix);
+
+  return prefix;
 }
 
 void em_mrb_init(em *self)
@@ -138,6 +153,7 @@ void em_mrb_init(em *self)
   class = mrb_define_class(self->mrb, "Em", self->mrb->object_class);
 
   mrb_define_class_method(self->mrb, class, "reply_count", em_mrb_method_reply_count, MRB_ARGS_NONE());
+  mrb_define_class_method(self->mrb, class, "set_reply_prefix", em_mrb_method_set_reply_prefix, MRB_ARGS_REQ(1));
 
   mrb_gc_arena_restore(self->mrb, ai);
 }

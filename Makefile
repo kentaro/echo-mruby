@@ -4,6 +4,7 @@ EM_BUILD_DIR=$(EM_ROOT)/build
 EM_LIB_DIR=$(EM_BUILD_DIR)/lib
 EM_INCLUDE_DIR=$(EM_BUILD_DIR)/include
 EM_BIN_DIR=$(EM_BUILD_DIR)
+MRUBY_CONFIG=$(EM_ROOT)/build_config.rb
 
 MRUBY_MAK_FILE := $(EM_ROOT)/vendor/mruby/build/host/lib/libmruby.flags.mak
 ifeq ($(wildcard $(MRUBY_MAK_FILE)),)
@@ -33,13 +34,14 @@ em-all: mruby
 #    compile mruby
 mruby:
 	test -f $(EM_BUILD_DIR)/lib/libmruby.a || (cd vendor/mruby && \
-		make && mkdir -p $(EM_BUILD_DIR)/lib $(EM_BUILD_DIR)/include && \
+		rake all MRUBY_CONFIG=$(MRUBY_CONFIG) && \
+		mkdir -p $(EM_BUILD_DIR)/lib $(EM_BUILD_DIR)/include && \
     cp build/host/lib/libmruby.a $(EM_BUILD_DIR)/lib/. && \
 		cp -r include/* $(EM_BUILD_DIR)/include/.)
 
 #   clean
 clean:
 	-rm -rf $(EM_BUILD_DIR)/*
-	cd vendor/mruby && make clean
+	cd vendor/mruby && rake deep_clean
 
 .PHONY: all
